@@ -36,7 +36,7 @@ Sebelum menjalankan aplikasi, pastikan perangkat Anda memenuhi syarat berikut:
 ### 1\. Clone Repository
 
 ```bash
-git clone [https://github.com/username-anda/TemanStudi.git](https://github.com/username-anda/TemanStudi.git)
+git clone [https://github.com/HaiqalRahman12/TemanStudi.git](https://github.com/HaiqalRahman12/TemanStudi.git)
 cd teman-studi-ai
 ```
 
