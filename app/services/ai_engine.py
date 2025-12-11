@@ -3,32 +3,53 @@ import logging
 import re
 import os
 from llama_cpp import Llama
+from huggingface_hub import hf_hub_download
 
 # Setup Logger
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("TemanStudi-Kaggle")
 
+# Default Config jika path tidak ditemukan
+DEFAULT_REPO_ID = "unsloth/Qwen3-4B-Instruct-2507-GGUF"
+DEFAULT_FILENAME = "Qwen3-4B-Instruct-2507-Q5_K_M.gguf"
+
 class AIBackendEngine:
     def __init__(self, model_path: str):
-        # --- LOGIKA PENCARIAN PATH MODEL (Updated) ---
-        # 1. Cek apakah path yang diberikan valid (Absolute atau Relative to CWD)
+        # --- LOGIKA PENCARIAN & DOWNLOAD OTOMATIS (Robust) ---
+        final_path = None
+        
+        # 1. Cek apakah path yang diberikan valid (Absolute/Relative)
         if os.path.exists(model_path):
             final_path = model_path
         else:
-            # 2. Fallback: Cek relatif terhadap struktur folder project
-            # Struktur: TemanStudi/app/services/ai_engine.py -> Mundur 3 level ke root -> models/
+            # 2. Cek di folder models/ dalam project
             base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            # Ambil nama filenya saja jika input berupa path panjang yang salah
             filename = os.path.basename(model_path)
             potential_path = os.path.join(base_dir, "models", filename)
             
             if os.path.exists(potential_path):
                 final_path = potential_path
-            else:
-                logger.error(f"❌ Model tidak ditemukan di: {model_path}")
-                logger.error(f"❌ Juga tidak ditemukan di fallback: {potential_path}")
-                raise FileNotFoundError("Model file missing.")
-        # ---------------------------------------------
+            
+            # 3. FALLBACK: Download Online jika tidak ditemukan dimanapun
+            if not final_path:
+                logger.warning(f"⚠️ Model tidak ditemukan di: {model_path} atau {potential_path}")
+                logger.info(f"⏳ Mencoba download otomatis dari HuggingFace: {DEFAULT_REPO_ID} ...")
+                
+                try:
+                    # Download ke folder ./models
+                    download_dir = os.path.join(base_dir, "models")
+                    os.makedirs(download_dir, exist_ok=True)
+                    
+                    final_path = hf_hub_download(
+                        repo_id=DEFAULT_REPO_ID,
+                        filename=DEFAULT_FILENAME,
+                        local_dir=download_dir
+                    )
+                    logger.info(f"✅ Model berhasil didownload ke: {final_path}")
+                except Exception as e:
+                    logger.error(f"❌ Gagal download model: {str(e)}")
+                    raise FileNotFoundError("Model file missing and download failed.")
+        # -----------------------------------------------------
 
         logger.info(f"🚀 Memuat Qwen 4B ke Tesla T4 GPU: {final_path}...")
         
