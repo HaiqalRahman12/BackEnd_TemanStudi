@@ -8,18 +8,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 from huggingface_hub import hf_hub_download
+import threading 
 
 # Import Engine dari folder app/services
 # (Struktur folder akan dibuat otomatis oleh Notebook Kaggle nanti)
 from app.services.ai_engine import init_engine, get_engine
 
 # --- KONFIGURASI MODEL ---
-# Menggunakan Qwen 4B sesuai request
 REPO_ID = "unsloth/Qwen3-4B-Instruct-2507-GGUF"
 FILENAME = "Qwen3-4B-Instruct-2507-Q5_K_M.gguf"
 # -------------------------
 
 app = FastAPI(title="TemanStudi Kaggle Service")
+
+# Kunci agar GPU tidak diperebutkan (Thread Safe)
+gpu_lock = threading.Lock()
 
 app.add_middleware(
     CORSMiddleware,
@@ -80,42 +83,54 @@ async def startup_event():
         print(f"❌ [Main.py] Gagal Init Engine: {e}")
 
 # --- Endpoints ---
+
+# PERBAIKAN: Hapus 'async' di sini agar jalan di Thread Pool
 @app.post("/generate", response_model=AIResponse)
-async def generate_endpoint(
+def generate_endpoint(
     file: UploadFile = File(...),
     start_page: int = Form(1),
     end_page: int = Form(10)
 ):
-    filename = file.filename.lower()
-    if not (filename.endswith(".pdf") or filename.endswith(".pptx")):
-        raise HTTPException(400, "Format harus PDF atau PPTX")
+    # Cek apakah GPU sedang dipakai orang lain?
+    if gpu_lock.locked():
+        print("⚠️ Request masuk saat GPU sibuk. User ini akan mengantri...")
 
-    ext = ".pdf" if filename.endswith(".pdf") else ".pptx"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = tmp.name
-
-    try:
-        full_text = ""
-        if "pdf" in ext:
-            full_text = extract_from_pdf(tmp_path, start_page, end_page)
-        else:
-            full_text = extract_from_pptx(tmp_path, start_page, end_page)
-
-        if len(full_text) < 50:
-            return AIResponse(status="error", pesan="Teks kosong", data=[])
-
-        engine = get_engine()
-        if engine is None:
-             raise HTTPException(503, "AI Engine belum siap/sedang loading model. Coba 1 menit lagi.")
-             
-        results = engine.generate_flashcards(full_text)
+    # Gunakan lock agar proses AI tidak tabrakan di memori
+    with gpu_lock:
+        print(f"🚀 [API] Memulai proses untuk file: {file.filename}")
         
-        final_data = [FlashcardItem(pertanyaan=r['question'], jawaban=r['answer']) for r in results]
-        return AIResponse(status="success", pesan="OK", data=final_data)
+        filename = file.filename.lower()
+        if not (filename.endswith(".pdf") or filename.endswith(".pptx")):
+            raise HTTPException(400, "Format harus PDF atau PPTX")
 
-    finally:
-        if os.path.exists(tmp_path): os.remove(tmp_path)
+        ext = ".pdf" if filename.endswith(".pdf") else ".pptx"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp_path = tmp.name
+
+        try:
+            full_text = ""
+            if "pdf" in ext:
+                full_text = extract_from_pdf(tmp_path, start_page, end_page)
+            else:
+                full_text = extract_from_pptx(tmp_path, start_page, end_page)
+
+            if len(full_text) < 50:
+                return AIResponse(status="error", pesan="Teks kosong", data=[])
+
+            engine = get_engine()
+            if engine is None:
+                 raise HTTPException(503, "AI Engine belum siap/sedang loading model. Coba 1 menit lagi.")
+            
+            # Proses Berat (Blocking) terjadi di sini
+            results = engine.generate_flashcards(full_text)
+            
+            final_data = [FlashcardItem(pertanyaan=r['question'], jawaban=r['answer']) for r in results]
+            print(f"✅ [API] Selesai memproses {file.filename}")
+            return AIResponse(status="success", pesan="OK", data=final_data)
+
+        finally:
+            if os.path.exists(tmp_path): os.remove(tmp_path)
 
 @app.get("/")
 def health():

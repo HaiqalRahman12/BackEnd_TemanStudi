@@ -111,7 +111,7 @@ class AIBackendEngine:
         all_cards = []
 
         system_msg = """
-        Anda adalah dosen senior yang kritis. 
+        Anda adalah seorang Guru yang menginspirasi. 
         Tugas: Ekstrak intisari materi menjadi Flashcard (Tanya-Jawab).
         Aturan:
         1. Buat pertanyaan yang menguji pemahaman konsep dan analisis.
