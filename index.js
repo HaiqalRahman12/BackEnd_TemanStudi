@@ -1,5 +1,9 @@
 require('dotenv').config()
 const express = require('express')
+const multer = require('multer')
+const axios = require('axios')
+const FormData = require('form-data')
+const upload = multer({ storage: multer.memoryStorage() })
 const db = require('./connection')
 const response = require('./response')
 const app = express()
@@ -207,6 +211,102 @@ app.post('/flashcard', cekToken, (req, res) => {
 })
 
 // --- 2. LIHAT SEMUA KARTU DALAM SATU DECK ---
+// Endpoint ini butuh: Token (untuk user_id), File, start_page, end_page
+app.post('/generate-deck', upload.single('file'), cekToken, async (req, res) => {
+    
+    // 1. VALIDASI INPUT
+    if (!req.file) {
+        return response(400, null, "File PDF wajib diupload!", res)
+    }
+    const { start_page, end_page, nama_deck } = req.body
+    const userId = req.user.user_id
+
+    // Default nama deck jika user tidak mengisi
+    const finalNamaDeck = nama_deck || `Deck AI - ${new Date().toISOString().split('T')[0]}`
+
+    try {
+        // 2. PERSIAPAN KIRIM KE API AI
+        // Kita harus menyusun ulang data "Form Data" untuk dikirim ke Python
+        const formData = new FormData()
+        formData.append('file', req.file.buffer, req.file.originalname)
+        formData.append('start_page', start_page || 1) // Default hal 1
+        formData.append('end_page', end_page || 5)     // Default hal 5
+
+        // 3. PANGGIL API EKSTERNAL (NGROK)
+        // Ganti URL ini sesuai link ngrok Anda yang aktif
+        const aiUrl = 'https://utterly-ethical-barnacle.ngrok-free.app/generate'
+        
+        console.log("Sedang meminta AI membuat soal...")
+        const aiResponse = await axios.post(aiUrl, formData, {
+            headers: {
+                ...formData.getHeaders() // Header khusus agar dikenali sebagai file upload
+            }
+        })
+
+        // Ambil data hasil generate dari respon AI
+        // Struktur respon AI tadi: { data: [ {pertanyaan: "...", jawaban: "..."} ] }
+        const listPertanyaan = aiResponse.data.data
+
+        if (!listPertanyaan || listPertanyaan.length === 0) {
+            return response(500, null, "AI tidak menghasilkan pertanyaan apa pun.", res)
+        }
+
+        console.log(`Berhasil dapat ${listPertanyaan.length} soal. Menyimpan ke database...`)
+
+        // 4. SIMPAN KE DATABASE (TRANSAKSI)
+        
+        // A. Buat Deck-nya dulu (Induk)
+        const sqlDeck = "INSERT INTO decks (user_id, nama_deck, created) VALUES (?, ?, NOW())"
+        
+        db.query(sqlDeck, [userId, finalNamaDeck], (err, resultDeck) => {
+            if (err) {
+                console.error(err)
+                return response(500, null, "Gagal membuat Deck", res)
+            }
+
+            const newDeckId = resultDeck.insertId
+
+            // B. Masukkan Flashcards hasil AI (Anak)
+            // Kita pakai loop atau Bulk Insert. Ini cara simpel dengan Loop:
+            
+            // Siapkan query insert
+            const sqlCard = "INSERT INTO flashcards (deck_id, pertanyaan, jawaban) VALUES ?"
+            
+            // Ubah format data JSON menjadi Array of Array agar bisa di-insert sekaligus
+            // Format: [[deck_id, tanya1, jawab1], [deck_id, tanya2, jawab2], ...]
+            const values = listPertanyaan.map(item => [
+                newDeckId, 
+                item.pertanyaan, 
+                item.jawaban
+            ])
+
+            db.query(sqlCard, [values], (errCard, resultCard) => {
+                if (errCard) {
+                    console.error(errCard)
+                    return response(500, null, "Deck dibuat tapi Gagal menyimpan kartu", res)
+                }
+
+                // SUKSES SEMUANYA!
+                const output = {
+                    deck_id: newDeckId,
+                    jumlah_kartu: listPertanyaan.length,
+                    preview: listPertanyaan[0] // Tampilkan 1 contoh
+                }
+                response(200, output, "Berhasil Generate & Simpan Deck!", res)
+            })
+        })
+
+    } catch (error) {
+        // Error handling jika API AI mati atau Error
+        console.error("Error AI Service:", error.message)
+        if (error.response) {
+            console.error("Detail Error AI:", error.response.data)
+        }
+        return response(500, null, "Gagal menghubungi layanan AI Generator", res)
+    }
+})
+
+
 // URL contoh: /deck/5/flashcards (Mengambil kartu dari Deck ID 5)
 app.get('/deck/:deck_id/flashcards', cekToken, (req, res) => {
   const deckId = req.params.deck_id
