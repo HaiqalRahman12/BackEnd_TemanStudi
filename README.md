@@ -1,171 +1,135 @@
-# 🧠 TemanStudi - AI Microservice
+Markdown
 
-Backend Service untuk Generasi Flashcard Cerdas menggunakan **Local LLM (Qwen 3 4B)**.
+<div align="center">
+  <img src="../TemanStudi-frontend/src/assets/logo.png" alt="Logo TemanStudi" width="200" />
+  <h1>TemanStudi AI Service 🧠</h1>
+  <p>
+    <b>Backend Cerdas Generator Flashcard (Kaggle Edition)</b>
+  </p>
 
-Repositori ini berisi kode sumber layanan AI berbasis **Python + FastAPI** yang bertugas memproses dokumen **PDF/PPTX** dan mengubahnya menjadi pasangan **Tanya–Jawab (Flashcard)** secara otomatis. Layanan ini didesain untuk berjalan **sepenuhnya lokal**, cocok untuk GPU konsumen seperti **RTX 3050**, dan sangat efisien dalam penggunaan memori.
+  <p>
+    <a href="https://fastapi.tiangolo.com/">
+      <img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi" alt="FastAPI" />
+    </a>
+    <a href="https://www.python.org/">
+      <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+    </a>
+    <a href="https://kaggle.com/">
+      <img src="https://img.shields.io/badge/Kaggle-Tesla%20T4-20BEFF?style=for-the-badge&logo=kaggle" alt="Kaggle" />
+    </a>
+    <a href="https://ngrok.com/">
+      <img src="https://img.shields.io/badge/Ngrok-Tunneling-1F1E38?style=for-the-badge&logo=ngrok" alt="Ngrok" />
+    </a>
+  </p>
+</div>
 
 ---
 
-## 🌟 Fitur Utama
+## 📖 Tentang Service
 
-- **Offline Intelligence** Menggunakan model **Qwen 3 4B (GGUF)** yang berjalan 100% lokal — gratis, privat, dan tanpa API key.
+**TemanStudi AI** adalah *microservice* backend yang bertugas memproses dokumen (PDF/PPTX) dan mengubahnya menjadi pasangan **Tanya-Jawab (Flashcard)** secara otomatis menggunakan kecerdasan buatan.
 
-- **Dual Format Support** Mendukung ekstraksi teks dari file **PDF (.pdf)** dan **PowerPoint (.pptx)**.
+Versi ini dirancang khusus untuk dijalankan di **Google Kaggle Notebook** (menggunakan GPU Tesla T4) dan diekspos ke internet publik menggunakan **Ngrok**, sehingga Frontend bisa mengaksesnya dari mana saja tanpa memerlukan hardware lokal yang mahal.
 
-- **Memory Safe Architecture** Menggunakan metode **Sliding Window Chunking** agar bisa memproses dokumen panjang tanpa Out of Memory (OOM) meski dengan VRAM kecil.
+## ✨ Fitur Utama
 
-- **Strict Output Validation** Menggunakan **Grammar Constraint** untuk memastikan output AI *selalu* dalam format **JSON valid**, siap dipakai backend utama.
+-   **Cloud GPU Powered:** Memanfaatkan performa tinggi GPU Tesla T4 (16GB VRAM) di Kaggle secara gratis.
+-   **Smart Model:** Menggunakan model **Qwen 3 4B (GGUF)** yang ringan namun sangat cerdas dalam Bahasa Indonesia.
+-   **Dual Format Support:** Mendukung ekstraksi teks dari file **PDF (.pdf)** dan **PowerPoint (.pptx)**.
+-   **Global Access:** Terintegrasi dengan **Ngrok** untuk membuat *tunnel* public URL yang aman (HTTPS).
+-   **Robust JSON Output:** Menggunakan *Grammar Constraint* untuk memastikan output AI selalu dalam format JSON yang valid dan siap dikonsumsi frontend.
 
------
+---
 
-## 📋 Prasyarat Sistem
+## 🛠️ Teknologi & Model
 
-Sebelum menjalankan aplikasi, pastikan perangkat Anda memenuhi syarat berikut:
+Service ini dibangun dengan tumpukan teknologi berikut:
 
-  * **OS:** Windows 10/11 atau Linux
-  * **Python:** Versi 3.10 atau lebih baru
-  * **GPU (Wajib untuk performa optimal):**
-      * NVIDIA GPU dengan minimal VRAM **16GB**
-      * (Diuji pada NVIDIA T4)
-  * **CUDA Toolkit:** Versi 11.8 atau 12.1
+* **Framework:** [FastAPI](https://fastapi.tiangolo.com/)
+* **AI Inference:** [Llama-cpp-python](https://github.com/abetlen/llama-cpp-python) (GPU Accelerated)
+* **Model LLM:** `Qwen3-4B-Instruct-2507-Q5_K_M.gguf`
+* **Document Parsing:** PyMuPDF (PDF) & python-pptx (PPTX)
+* **Tunneling:** PyNgrok
 
------
+---
 
-## 🚀 Panduan Instalasi
+## 🚀 Cara Menjalankan (Di Kaggle)
 
-### 1\. Clone Repository
+Service ini tidak ditujukan untuk dijalankan di laptop standar (kecuali memiliki GPU High-End). Berikut langkah-langkah *deployment* di Kaggle:
 
-```bash
-git clone [https://github.com/HaiqalRahman12/TemanStudi.git](https://github.com/HaiqalRahman12/TemanStudi.git)
-cd teman-studi-ai
-```
+### 1. Persiapan Notebook
+Buat Notebook baru di Kaggle dan aktifkan akselerator **GPU T4 x2**.
 
-### 2\. Setup Virtual Environment (Opsional namun Disarankan)
+### 2. Upload Kode
+Upload seluruh isi folder `TemanStudi-AI` ke dalam *Working Directory* Kaggle.
 
-```bash
-python -m venv venv
-
-# Windows:
-venv\Scripts\activate
-
-# Linux/Mac:
-source venv/bin/activate
-```
-
-### 3\. Install Dependensi Dasar
+### 3. Instalasi Dependensi
+Jalankan sel pertama untuk menginstal library yang dibutuhkan (termasuk versi GPU khusus untuk llama-cpp):
 
 ```bash
-pip install -r requirements.txt
-```
+!pip install -r requirements.txt
+!pip install llama-cpp-python --upgrade --force-reinstall --no-cache-dir --extra-index-url [https://abetlen.github.io/llama-cpp-python/whl/cu121](https://abetlen.github.io/llama-cpp-python/whl/cu121)
+4. Setup Autentikasi Ngrok
+Pastikan kamu memiliki Authtoken dari dashboard Ngrok. Tambahkan token tersebut di variabel environment atau langsung di kode setup ngrok (jika ada script terpisah).
 
-### 4\. Install Library AI (Khusus GPU) ⚠️ PENTING
+5. Jalankan Server
+Eksekusi perintah berikut di sel terakhir untuk menjalankan server FastAPI dan memulai tunnel Ngrok:
 
-Jangan install `llama-cpp-python` sembarangan. Gunakan perintah berikut agar versi GPU terdeteksi:
+Python
 
-**Untuk CUDA 12.1:**
+# Contoh perintah eksekusi di dalam Notebook
+import uvicorn
+from pyngrok import ngrok
+import nest_asyncio
 
-```bash
-pip install llama-cpp-python --upgrade --force-reinstall --no-cache-dir --extra-index-url [https://abetlen.github.io/llama-cpp-python/whl/cu121](https://abetlen.github.io/llama-cpp-python/whl/cu121)
-```
+# Setup Ngrok
+ngrok.set_auth_token("MASUKKAN_TOKEN_NGROK_KAMU")
+public_url = ngrok.connect(8000).public_url
+print(f"🚀 Public URL: {public_url}")
 
-*(Jika menggunakan CUDA 11.8, ganti `cu121` menjadi `cu118`)*.
+# Patch Event Loop (Kaggle Issues)
+nest_asyncio.apply()
 
-### 5\. Download Model AI
+# Jalankan App
+uvicorn.run("main:app", host="0.0.0.0", port=8000)
+Setelah berjalan, salin Public URL (contoh: https://abcd-1234.ngrok-free.app) dan masukkan ke konfigurasi Frontend atau .env backend utama kamu.
 
-1.  Kunjungi HuggingFace.
-2.  Cari **Qwen3-4B-Instruct-GGUF**.
-3.  Download file: **`Qwen3-4B-Instruct-Q5_K_M.gguf`**.
-4.  Buat folder `models/` pada root proyek.
-5.  Simpan file model di dalam folder tersebut.
+🔌 Dokumentasi API
+Endpoint utama yang tersedia:
 
-**Struktur folder akhir:**
+1. Cek Kesehatan Server
+URL: /
 
-```text
-TemanStudi/
-├── models/
-│   └── Qwen3-4B-Instruct-Q5_K_M.gguf
-├── app/
-|   |__ __init__.py
-│   ├── services/
-|   |   └── __init__.py
-│   │   └── ai_engine.py
-├── main.py
-└── requirements.txt
-```
+Method: GET
 
------
+Response: Status server dan model yang dimuat.
 
-## 🏃‍♂️ Menjalankan Server
+2. Generate Flashcards
+Endpoint untuk memproses dokumen menjadi soal.
 
-Jalankan server dengan perintah:
+URL: /generate
 
-```bash
-uvicorn main:app --reload --port 8000
-```
+Method: POST
 
-Saat model berhasil dimuat, akan muncul log:
-`INFO: 🚀 Memuat Model ke GPU: Qwen3-4B-Instruct-Q5_K_M.gguf...`
+Content-Type: multipart/form-data
 
-Cek kesehatan server melalui browser:  
-👉 `http://localhost:8000/`
+Parameter: | Key | Type | Deskripsi | | :--- | :--- | :--- | | file | File | Dokumen PDF atau PPTX | | start_page | Int | Halaman awal (misal: 1) | | end_page | Int | Halaman akhir (misal: 10) |
 
------
+Contoh Response JSON:
 
-## 🔌 Dokumentasi API
+JSON
 
-### Generate Flashcards
-
-Endpoint utama untuk memproses dokumen.
-
-  * **URL:** `/generate`
-  * **Method:** `POST`
-  * **Content-Type:** `multipart/form-data`
-
-**Parameter Body:**
-
-| Key | Type | Deskripsi |
-| :--- | :--- | :--- |
-| `file` | File | File dokumen (`.pdf` atau `.pptx`) |
-| `start_page` | Integer | Halaman awal (mulai dari 1) |
-| `end_page` | Integer | Halaman akhir |
-
-**Contoh Response:**
-
-```json
 {
   "status": "success",
   "pesan": "OK",
   "data": [
     {
-      "pertanyaan": "Apa fungsi utama mitokondria?",
-      "jawaban": "Sebagai tempat respirasi sel untuk menghasilkan energi."
+      "pertanyaan": "Apa itu fotosintesis?",
+      "jawaban": "Proses pembuatan makanan pada tumbuhan menggunakan cahaya matahari."
     },
     {
-      "pertanyaan": "Siapa bapak sosiologi modern?",
-      "jawaban": "Auguste Comte."
+      "pertanyaan": "Zat apa yang dihasilkan dari fotosintesis?",
+      "jawaban": "Glukosa dan Oksigen."
     }
   ]
 }
-```
-
------
-
-## ⚠️ Batasan & Troubleshooting
-
-1.  **AI berjalan lambat**
-
-      * Periksa apakah ada log `BLAS = 1` saat startup.
-      * Jika tidak muncul → Model berjalan di CPU.
-      * → Ulangi langkah install GPU (bagian 4).
-
-2.  **Output kosong / parsing error**
-
-      * Pastikan file PDF bukan hasil scan (harus memiliki teks yang bisa diseleksi).
-
-3.  **Batas maksimal halaman**
-
-      * Disarankan memproses **15–20 halaman** per request untuk mencegah timeout.
-
-<!-- end list -->
-
-```
