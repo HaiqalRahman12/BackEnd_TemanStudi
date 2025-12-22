@@ -1,7 +1,5 @@
-Markdown
-
 <div align="center">
-  <img src="../TemanStudi-frontend/src/assets/logo.png" alt="Logo TemanStudi" width="200" />
+  <a href='https://postimg.cc/sB7wXnXy' target='_blank'><img src='https://i.postimg.cc/sB7wXnXy/logo.png' border='0' alt='logo' width=200></a>
   <h1>TemanStudi AI Service 🧠</h1>
   <p>
     <b>Backend Cerdas Generator Flashcard (Kaggle Edition)</b>
